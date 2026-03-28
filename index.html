@@ -7,7 +7,7 @@
     body { font-family: Arial, sans-serif; margin: 20px; }
     form { margin-bottom: 20px; }
     input { margin: 5px; padding: 5px; }
-    button { padding: 6px 12px; }
+    button { padding: 6px 12px; margin: 2px; }
     table { border-collapse: collapse; width: 100%; margin-top: 20px; }
     th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
     th { background: #f4f4f4; }
@@ -31,6 +31,7 @@
         <th>Name</th>
         <th>Age</th>
         <th>Course</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody id="studentTable"></tbody>
@@ -39,10 +40,10 @@
   <!-- Firebase + Firestore -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore.js";
 
-    // Replace with your Firebase config from Project Settings
-    const firebaseConfig = {
+    // Replace with your Firebase config
+   const firebaseConfig = {
   apiKey: "AIzaSyAbQCM2sp4XJAVPporiaTdxo1tKwGLvGV4",
   authDomain: "student-list-app-c7762.firebaseapp.com",
   projectId: "student-list-app-c7762",
@@ -59,7 +60,20 @@
     // Add student
     async function addStudent(name, age, course) {
       await addDoc(collection(db, "students"), { name, age, course });
-      loadStudents(); // refresh list
+      loadStudents();
+    }
+
+    // Delete student
+    async function deleteStudent(id) {
+      await deleteDoc(doc(db, "students", id));
+      loadStudents();
+    }
+
+    // Edit student
+    async function editStudent(id, name, age, course) {
+      const studentRef = doc(db, "students", id);
+      await updateDoc(studentRef, { name, age, course });
+      loadStudents();
     }
 
     // Load students
@@ -67,25 +81,57 @@
       const querySnapshot = await getDocs(collection(db, "students"));
       const table = document.getElementById("studentTable");
       table.innerHTML = "";
-      querySnapshot.forEach(doc => {
-        const student = doc.data();
-        const row = `<tr><td>${student.name}</td><td>${student.age}</td><td>${student.course}</td></tr>`;
+      querySnapshot.forEach(docSnap => {
+        const student = docSnap.data();
+        const row = `
+          <tr>
+            <td>${student.name}</td>
+            <td>${student.age}</td>
+            <td>${student.course}</td>
+            <td>
+              <button onclick="deleteStudent('${docSnap.id}')">Delete</button>
+              <button onclick="showEditForm('${docSnap.id}', '${student.name}', '${student.age}', '${student.course}')">Edit</button>
+            </td>
+          </tr>`;
         table.innerHTML += row;
       });
     }
 
-    // Handle form submit
-    document.getElementById("studentForm").addEventListener("submit", e => {
+    // Show edit form
+    window.showEditForm = function(id, name, age, course) {
+      document.getElementById("name").value = name;
+      document.getElementById("age").value = age;
+      document.getElementById("course").value = course;
+
+      const form = document.getElementById("studentForm");
+      form.onsubmit = e => {
+        e.preventDefault();
+        const newName = document.getElementById("name").value;
+        const newAge = document.getElementById("age").value;
+        const newCourse = document.getElementById("course").value;
+        editStudent(id, newName, newAge, newCourse);
+        form.reset();
+        form.onsubmit = defaultSubmit; // reset back to add mode
+      };
+    };
+
+    // Default form submit (add mode)
+    function defaultSubmit(e) {
       e.preventDefault();
       const name = document.getElementById("name").value;
       const age = document.getElementById("age").value;
       const course = document.getElementById("course").value;
       addStudent(name, age, course);
       document.getElementById("studentForm").reset();
-    });
+    }
+
+    document.getElementById("studentForm").onsubmit = defaultSubmit;
 
     // Load students on page load
     loadStudents();
+
+    // Expose deleteStudent globally
+    window.deleteStudent = deleteStudent;
   </script>
 </body>
 </html>
